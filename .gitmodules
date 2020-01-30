@@ -1,0 +1,3 @@
+[submodule "DSAlign"]
+	path = DSAlign
+	url = https://github.com/talonvoice/DSAlign.git

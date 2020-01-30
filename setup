@@ -1,0 +1,21 @@
+#!/bin/bash -e
+
+cd "$(dirname "$0")"
+if [[ -e DSAlign && -e DSAlign/venv && -e DSAlign/models/en ]]; then
+    exit 0
+else
+    echo "[+] DSAlign not found, running setup"
+fi
+
+if [[ ! -e DSAlign/bin ]]; then
+    echo '[+] Fetch submodule DSAlign'
+    git submodule update --init --recursive
+fi
+
+cd DSAlign
+echo '[+] Create DSAlign environment'
+bin/createenv.sh
+echo '[+] Fetch DSAlign model'
+bin/getmodel.sh
+echo '[+] Build KenLM'
+bin/lm-dependencies.sh

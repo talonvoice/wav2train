@@ -1,0 +1,15 @@
+#!/bin/bash
+
+if [[ $# -lt 1 ]]; then
+    echo "Usage: wplay <clips.lst> [...clips.lst]"
+    exit 1
+fi
+
+for clips_lst in "$@"; do
+    while read line; do
+        clip=$(echo "$line" | cut -d' ' -f2)
+        text=$(echo "$line" | cut -d' ' -f4-)
+        echo "[+] $text"
+        play -q "$clip" 2>&1 || exit
+    done < "$clips_lst"
+done
