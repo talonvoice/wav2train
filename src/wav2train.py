@@ -1,6 +1,7 @@
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from tqdm import tqdm
+import argparse
 import json
 import multiprocessing
 import os
@@ -92,7 +93,7 @@ def segment(audio_file, aligned_json, clips_dir):
     if skipped:
         print('[-] Clip {}: skipped {}/{} segments due to bad alignment'.format(name, skipped, len(aligned_json)))
 
-def wav2train(indir, outdir):
+def wav2train(indir, outdir, jobs=1):
     indir     = os.path.abspath(indir)
     outdir    = os.path.abspath(outdir)
     align_dir = os.path.join(outdir, 'align')
@@ -103,8 +104,10 @@ def wav2train(indir, outdir):
     os.makedirs(clips_dir, exist_ok=True)
     os.chdir(dsalign_dir)
 
-    jobs = multiprocessing.cpu_count()
-    pool = ThreadPool(jobs)
+    threads = multiprocessing.cpu_count()
+    align_pool   = ThreadPool(jobs)
+    segment_pool = ThreadPool(threads)
+    stt_jobs = max(1, threads // jobs)
 
     align_queue = []
     print('[+] Collecting files to align')
@@ -138,9 +141,9 @@ def wav2train(indir, outdir):
     align_queue.sort()
     segment_queue = []
     print('[+] Aligning ({}) transcript(s)'.format(len(align_queue)))
-    for audio_path, txt_path in tqdm(align_queue, desc='Align'):
+    align_fn = lambda t: align(t[0], t[1], align_dir, jobs=stt_jobs)
+    for audio_path, aligned_json in tqdm(align_pool.imap(align_fn, align_queue), desc='Align', total=len(align_queue)):
         try:
-            audio_path, aligned_json = align(audio_path, txt_path, align_dir, jobs=jobs)
             with open(aligned_json, 'r') as f:
                 j = json.load(f)
             segment_queue.append((audio_path, j))
@@ -152,12 +155,14 @@ def wav2train(indir, outdir):
     segment_fn = lambda t: segment(t[0], t[1], clips_dir)
     print('[+] Generating segments for ({}) clip(s)'.format(len(segment_queue)))
     with open(clips_lst, 'w') as lst:
-        for lines in tqdm(pool.imap(segment_fn, segment_queue), desc='Segment', total=len(segment_queue)):
+        for lines in tqdm(segment_pool.imap(segment_fn, segment_queue), desc='Segment', total=len(segment_queue)):
             for line in lines: 
                 lst.write(line + '\n')
 
 if __name__ == '__main__':
-    if len(sys.argv) != 3:
-        print('Usage: wav2train <input_dir> <output_dir>')
-        sys.exit(1)
-    wav2train(sys.argv[1], sys.argv[2])
+    parser = argparse.ArgumentParser()
+    parser.add_argument('input_dir')
+    parser.add_argument('output_dir')
+    parser.add_argument('-j', help='alignments to run in parallel', type=int, default=1)
+    args = parser.parse_args()
+    wav2train(args.input_dir, args.output_dir, jobs=args.j)
