@@ -61,4 +61,11 @@ This process works best on a Mac or Linux computer.
 
 ## Extras
 
-    ./wplay output/clips.lst # print the transcript and play each clip, for debugging
+    # Print the transcript for each clip and play it, for debugging
+    ./wplay output/clips.lst
+
+    # Update the paths in output/*.lst to match its current directory
+    # As *.lst uses absolute paths, this is useful to run after moving
+    #    datasets around on your disk or to a new machine.
+    # Only works if clips are in the dirname(.lst)/clips/* directory
+    ./wrebase output/
