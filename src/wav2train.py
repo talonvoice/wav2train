@@ -87,7 +87,7 @@ def segment(audio_file, aligned_json, clips_dir):
                 tf = sox.Transformer()
                 tf.trim(start / 1000, end / 1000)
                 tf.build(audio_file, clip)
-            duration = sox.file_info.duration(clip) * 1000
+            duration = round(sox.file_info.duration(clip) * 1000, 3)
             yield '{} {} {} {}'.format(subname, clip, duration, text)
         except Exception:
             print('Error segmenting {}-{}'.format(name, i))
