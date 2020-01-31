@@ -18,7 +18,7 @@ align_exe = 'align/align.py'
 
 devnull = open(os.devnull, 'w+')
 
-def align(audio_file, transcript_file, align_dir, jobs=1):
+def align(audio_file, transcript_file, align_dir, jobs=1, verbose=False):
     linked_transcript = os.path.join(align_dir, os.path.basename(transcript_file))
     try:
         os.link(transcript_file, linked_transcript)
@@ -41,7 +41,11 @@ def align(audio_file, transcript_file, align_dir, jobs=1):
         '--force',
     ]
     # print(argv)
-    p = subprocess.Popen(argv, stdin=devnull, stdout=devnull, stderr=subprocess.PIPE)
+    if verbose:
+        argv.remove('--no-progress')
+        p = subprocess.Popen(argv, stdin=devnull)
+    else:
+        p = subprocess.Popen(argv, stdin=devnull, stdout=devnull, stderr=subprocess.PIPE)
     _, err = p.communicate()
     err = (err or b'').strip().decode('utf8')
     for line in err.split('\n'):
@@ -93,9 +97,9 @@ def segment(audio_file, aligned_json, clips_dir):
     if skipped:
         print('[-] Clip {}: skipped {}/{} segments due to bad alignment'.format(name, skipped, len(aligned_json)))
 
-def wav2train(indir, outdir, jobs=1):
-    indir     = os.path.abspath(indir)
-    outdir    = os.path.abspath(outdir)
+def wav2train(args):
+    indir     = os.path.abspath(args.input_dir)
+    outdir    = os.path.abspath(args.output_dir)
     align_dir = os.path.join(outdir, 'align')
     clips_dir  = os.path.join(outdir, 'clips')
     clips_lst = os.path.join(outdir, 'clips.lst')
@@ -105,9 +109,9 @@ def wav2train(indir, outdir, jobs=1):
     os.chdir(dsalign_dir)
 
     threads = multiprocessing.cpu_count()
-    align_pool   = ThreadPool(jobs)
+    align_pool   = ThreadPool(args.jobs)
     segment_pool = ThreadPool(threads)
-    stt_jobs = max(1, threads // jobs)
+    stt_jobs = max(1, threads // args.jobs)
 
     align_queue = []
     print('[+] Collecting files to align')
@@ -141,7 +145,7 @@ def wav2train(indir, outdir, jobs=1):
     align_queue.sort()
     segment_queue = []
     print('[+] Aligning ({}) transcript(s)'.format(len(align_queue)))
-    align_fn = lambda t: align(t[0], t[1], align_dir, jobs=stt_jobs)
+    align_fn = lambda t: align(t[0], t[1], align_dir, jobs=stt_jobs, verbose=args.verbose)
     for audio_path, aligned_json in tqdm(align_pool.imap(align_fn, align_queue), desc='Align', total=len(align_queue)):
         try:
             with open(aligned_json, 'r') as f:
@@ -163,6 +167,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('input_dir')
     parser.add_argument('output_dir')
-    parser.add_argument('-j', help='alignments to run in parallel', type=int, default=1)
+    parser.add_argument('--jobs', '-j', help='alignments to run in parallel', type=int, default=1)
+    parser.add_argument('--verbose', '-v', help='print verbose output', action='store_true')
     args = parser.parse_args()
-    wav2train(args.input_dir, args.output_dir, jobs=args.j)
+    wav2train(args)
