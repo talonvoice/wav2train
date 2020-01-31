@@ -10,7 +10,7 @@ This process works best on a Mac or Linux computer.
 ### Debian
 
     sudo apt install build-essential libboost-all-dev cmake zlib1g-dev libbz2-dev liblzma-dev \
-                     python3 python3-pip ffmpeg wget
+                     python3 python3-pip python3-venv ffmpeg wget
     ./setup
 
 ### macOS
