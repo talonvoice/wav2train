@@ -17,7 +17,7 @@ align_exe = 'align/align.py'
 
 devnull = open(os.devnull, 'w+')
 
-def align(audio_file, transcript_file, align_dir):
+def align(audio_file, transcript_file, align_dir, jobs=1):
     linked_transcript = os.path.join(align_dir, os.path.basename(transcript_file))
     try:
         os.link(transcript_file, linked_transcript)
@@ -27,8 +27,10 @@ def align(audio_file, transcript_file, align_dir):
     name    = os.path.basename(audio_file).rsplit('.', 1)[0]
     aligned = os.path.join(align_dir, name + '-aligned.json')
     tlog    = os.path.join(align_dir, name + '.tlog')
+    if os.path.exists(aligned):
+        return audio_file, aligned
     argv = ['python', align_exe,
-        '--stt-workers',    '1',
+        '--stt-workers',    str(jobs),
         '--output-max-cer', '25',
         '--audio',   audio_file,
         '--script',  linked_transcript,
@@ -133,16 +135,17 @@ def wav2train(indir, outdir):
             audio_path = n_path
             align_queue.append((audio_path, txt_path))
 
+    align_queue.sort()
     segment_queue = []
-    align_fn = lambda t: align(t[0], t[1], align_dir)
     print('[+] Aligning ({}) transcript(s)'.format(len(align_queue)))
-    for audio_file, aligned_json in tqdm(pool.imap(align_fn, align_queue), desc='Align', total=len(align_queue)):
+    for audio_path, txt_path in tqdm(align_queue, desc='Align'):
         try:
+            audio_path, aligned_json = align(audio_path, txt_path, align_dir, jobs=jobs)
             with open(aligned_json, 'r') as f:
                 j = json.load(f)
-            segment_queue.append((audio_file, j))
+            segment_queue.append((audio_path, j))
         except Exception:
-            print('Failed to align {}'.format(audio_file))
+            print('Failed to align {}'.format(audio_path))
             traceback.print_exc()
     print('[+] Alignment complete')
 
