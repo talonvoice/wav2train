@@ -89,7 +89,7 @@ def segment(audio_file, aligned_json, clips_dir):
             duration = round(sox.file_info.duration(clip) * 1000, 3)
             yield '{} {} {} {}'.format(subname, clip, duration, text)
         except Exception:
-            logging.exception('Error segmenting {}-{}'.format(name, i))
+            logging.debug('Error segmenting {}-{}'.format(name, i))
             skipped += 1
 
     if skipped:
@@ -167,7 +167,7 @@ def wav2train(args):
                 j = json.load(f)
             segment_queue.append((audio_path, j))
         except Exception:
-            logging.exception('Failed to align {}'.format(audio_path))
+            logging.debug('Failed to align {}'.format(audio_path))
     logging.info('[+] Alignment complete')
 
     segment_fn = lambda t: segment(t[0], t[1], clips_dir)
