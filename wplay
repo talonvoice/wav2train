@@ -6,8 +6,15 @@ if [[ $# -lt 1 ]]; then
 fi
 
 for clips_lst in "$@"; do
+    dir=$(dirname "$clips_lst")
     while read line; do
-        clip=$(echo "$line" | cut -d' ' -f2)
+        parts=( $line )
+        clip=${parts[1]}
+        if [[ ! -e "$clip" ]]; then
+             # try to rebase
+             clip="$dir/clips/${clip##/*/}"
+             [[ -e "$clip" ]] || continue
+        fi
         text=$(echo "$line" | cut -d' ' -f4-)
         echo "[+] $text"
         play -q "$clip" 2>&1 || exit
