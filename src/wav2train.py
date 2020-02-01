@@ -76,7 +76,7 @@ def segment(audio_file, aligned_json, clips_dir):
             start = segment['start']
             end = segment['end']
 
-            aligned = segment['aligned'].lower()
+            aligned = segment['aligned'].strip().lower()
             text = ' '.join(words_re.findall(text.lower()))
             if aligned != text:
                 logging.debug('[-] Discarding Alignment:')
