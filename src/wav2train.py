@@ -1,5 +1,4 @@
 from multiprocessing.pool import ThreadPool
-from pathlib import Path
 from tqdm import tqdm
 import argparse
 import json
@@ -138,9 +137,9 @@ def wav2train(args):
     logging.info('[+] Collecting files to align')
     seen_exts   = set()
     unseen_exts = {'flac', 'wav', 'mp3', 'ogg', 'sph', 'aac', 'wma', 'alac'}
-    for p in Path(indir).iterdir():
-        if p.name.endswith('.txt'):
-            txt_path = str(p.resolve())
+    for ent in os.scandir(indir):
+        if ent.name.endswith('.txt'):
+            txt_path = ent.path
             name = txt_path.rsplit('.', 1)[0]
             ext = ''
             n_path = ''
@@ -160,13 +159,14 @@ def wav2train(args):
                     continue
                 seen_exts.add(ext)
                 unseen_exts.remove(ext)
+            sz = ent.stat(follow_symlinks=True).st_size
             audio_path = n_path
-            align_queue.append((audio_path, txt_path))
+            align_queue.append((sz, audio_path, txt_path))
 
-    align_queue.sort()
+    align_queue.sort(reverse=True)
     segment_queue = []
     logging.info('[+] Aligning ({}) transcript(s)'.format(len(align_queue)))
-    align_fn = lambda t: align(t[0], t[1], align_dir, jobs=stt_jobs, verbose=args.verbose, model=model_dir)
+    align_fn = lambda t: align(t[1], t[2], align_dir, jobs=stt_jobs, verbose=args.verbose, model=model_dir)
     for audio_path, aligned_json in tqdm(align_pool.imap(align_fn, align_queue), desc='Align', total=len(align_queue)):
         try:
             with open(aligned_json, 'r') as f:
