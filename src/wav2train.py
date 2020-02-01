@@ -40,10 +40,10 @@ def align(audio_file, transcript_file, align_dir, jobs=1, verbose=False, model=N
     if model is not None:
         argv += ['--stt-model-dir', model]
     if verbose:
+        print(' '.join(argv))
         p = subprocess.Popen(argv, stdin=devnull)
     else:
         argv += ['--no-progress']
-        print(' '.join(argv))
         p = subprocess.Popen(argv, stdin=devnull, stdout=devnull, stderr=subprocess.PIPE)
     _, err = p.communicate()
     err = (err or b'').strip().decode('utf8')
