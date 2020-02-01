@@ -2,4 +2,6 @@
 basedir=$(cd "$(dirname "$0")" && pwd)
 "$basedir/setup"
 . "$basedir/DSAlign/venv/bin/activate"
+# wav2letter parallelization works better with this flag
+export OMP_NUM_THREADS=1
 python "$basedir/src/wav2train.py" "$@"
