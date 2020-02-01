@@ -18,7 +18,7 @@ align_exe = 'align/align.py'
 
 devnull = open(os.devnull, 'w+')
 
-def align(audio_file, transcript_file, align_dir, jobs=1, verbose=False):
+def align(audio_file, transcript_file, align_dir, jobs=1, verbose=False, model=None):
     linked_transcript = os.path.join(align_dir, os.path.basename(transcript_file))
     try:
         os.link(transcript_file, linked_transcript)
@@ -37,14 +37,15 @@ def align(audio_file, transcript_file, align_dir, jobs=1, verbose=False):
         '--script',  linked_transcript,
         '--aligned', aligned,
         '--tlog',    tlog,
-        '--no-progress',
         '--force',
     ]
-    # print(argv)
+    if model is not None:
+        argv += ['--stt-model-dir', model]
     if verbose:
-        argv.remove('--no-progress')
         p = subprocess.Popen(argv, stdin=devnull)
     else:
+        argv += ['--no-progress']
+        print(' '.join(argv))
         p = subprocess.Popen(argv, stdin=devnull, stdout=devnull, stderr=subprocess.PIPE)
     _, err = p.communicate()
     err = (err or b'').strip().decode('utf8')
@@ -104,6 +105,10 @@ def wav2train(args):
     clips_dir  = os.path.join(outdir, 'clips')
     clips_lst = os.path.join(outdir, 'clips.lst')
 
+    model_dir = None
+    if args.model:
+        model_dir = os.path.abspath(args.model)
+
     os.makedirs(align_dir, exist_ok=True)
     os.makedirs(clips_dir, exist_ok=True)
     os.chdir(dsalign_dir)
@@ -145,7 +150,7 @@ def wav2train(args):
     align_queue.sort()
     segment_queue = []
     print('[+] Aligning ({}) transcript(s)'.format(len(align_queue)))
-    align_fn = lambda t: align(t[0], t[1], align_dir, jobs=stt_jobs, verbose=args.verbose)
+    align_fn = lambda t: align(t[0], t[1], align_dir, jobs=stt_jobs, verbose=args.verbose, model=model_dir)
     for audio_path, aligned_json in tqdm(align_pool.imap(align_fn, align_queue), desc='Align', total=len(align_queue)):
         try:
             with open(aligned_json, 'r') as f:
@@ -167,7 +172,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('input_dir')
     parser.add_argument('output_dir')
-    parser.add_argument('--jobs', '-j', help='alignments to run in parallel', type=int, default=1)
+    parser.add_argument('--model',   '-m', help='directory containing speech model', type=str)
+    parser.add_argument('--jobs',    '-j', help='alignments to run in parallel', type=int, default=1)
     parser.add_argument('--verbose', '-v', help='print verbose output', action='store_true')
     args = parser.parse_args()
     wav2train(args)
