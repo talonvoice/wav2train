@@ -3,6 +3,7 @@ from pathlib import Path
 from tqdm import tqdm
 import argparse
 import json
+import logging
 import multiprocessing
 import os
 import re
@@ -72,11 +73,10 @@ def segment(audio_file, aligned_json, clips_dir):
             aligned = segment['aligned'].lower()
             text = ' '.join(words_re.findall(text.lower()))
             if aligned != text:
-                print('[-] Discarding Alignment:')
-                print('a|', segment['aligned'])
-                print('r|', segment['aligned-raw'])
-                print('t|', text)
-                print()
+                logging.info('[-] Discarding Alignment:')
+                logging.info('a|{}'.format(segment['aligned']))
+                logging.info('r|{}'.format(segment['aligned-raw']))
+                logging.info('t|{}'.format(text))
                 skipped += 1
                 continue
 
@@ -89,19 +89,28 @@ def segment(audio_file, aligned_json, clips_dir):
             duration = round(sox.file_info.duration(clip) * 1000, 3)
             yield '{} {} {} {}'.format(subname, clip, duration, text)
         except Exception:
-            print('Error segmenting {}-{}'.format(name, i))
-            traceback.print_exc()
+            logging.exception('Error segmenting {}-{}'.format(name, i))
             skipped += 1
 
     if skipped:
-        print('[-] Clip {}: skipped {}/{} segments due to bad alignment'.format(name, skipped, len(aligned_json)))
+        logging.info('[-] Clip {}: skipped {}/{} segments due to bad alignment'.format(name, skipped, len(aligned_json)))
 
 def wav2train(args):
+    logfile = os.path.abspath('align.log')
+    logging.basicConfig(filename=logfile, level=logging.DEBUG)
+    stream = logging.StreamHandler()
+    stream.setLevel(logging.INFO)
+    logging.getLogger().addHandler(stream)
+
     indir     = os.path.abspath(args.input_dir)
     outdir    = os.path.abspath(args.output_dir)
     align_dir = os.path.join(outdir, 'align')
     clips_dir  = os.path.join(outdir, 'clips')
     clips_lst = os.path.join(outdir, 'clips.lst')
+
+    logging.info('[+] Starting new alignment.')
+    logging.info('[+] Input: {}'.format(indir))
+    logging.info('[+] Output: {}'.format(outdir))
 
     model_dir = None
     if args.model:
@@ -120,7 +129,7 @@ def wav2train(args):
         stt_jobs = max(1, threads // args.jobs)
 
     align_queue = []
-    print('[+] Collecting files to align')
+    logging.info('[+] Collecting files to align')
     seen_exts   = set()
     unseen_exts = {'flac', 'wav', 'mp3', 'ogg', 'sph', 'aac', 'wma', 'alac'}
     for p in Path(indir).iterdir():
@@ -150,7 +159,7 @@ def wav2train(args):
 
     align_queue.sort()
     segment_queue = []
-    print('[+] Aligning ({}) transcript(s)'.format(len(align_queue)))
+    logging.info('[+] Aligning ({}) transcript(s)'.format(len(align_queue)))
     align_fn = lambda t: align(t[0], t[1], align_dir, jobs=stt_jobs, verbose=args.verbose, model=model_dir)
     for audio_path, aligned_json in tqdm(align_pool.imap(align_fn, align_queue), desc='Align', total=len(align_queue)):
         try:
@@ -158,16 +167,16 @@ def wav2train(args):
                 j = json.load(f)
             segment_queue.append((audio_path, j))
         except Exception:
-            print('Failed to align {}'.format(audio_path))
-            traceback.print_exc()
-    print('[+] Alignment complete')
+            logging.exception('Failed to align {}'.format(audio_path))
+    logging.info('[+] Alignment complete')
 
     segment_fn = lambda t: segment(t[0], t[1], clips_dir)
-    print('[+] Generating segments for ({}) clip(s)'.format(len(segment_queue)))
+    logging.info('[+] Generating segments for ({}) clip(s)'.format(len(segment_queue)))
     with open(clips_lst, 'w') as lst:
         for lines in tqdm(segment_pool.imap(segment_fn, segment_queue), desc='Segment', total=len(segment_queue)):
             for line in lines: 
                 lst.write(line + '\n')
+    logging.info('[+] Generated segments. All done.')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
