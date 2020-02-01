@@ -73,10 +73,10 @@ def segment(audio_file, aligned_json, clips_dir):
             aligned = segment['aligned'].lower()
             text = ' '.join(words_re.findall(text.lower()))
             if aligned != text:
-                logging.info('[-] Discarding Alignment:')
-                logging.info('a|{}'.format(segment['aligned']))
-                logging.info('r|{}'.format(segment['aligned-raw']))
-                logging.info('t|{}'.format(text))
+                logging.debug('[-] Discarding Alignment:')
+                logging.debug('a|{}'.format(segment['aligned']))
+                logging.debug('r|{}'.format(segment['aligned-raw']))
+                logging.debug('t|{}'.format(text))
                 skipped += 1
                 continue
 
