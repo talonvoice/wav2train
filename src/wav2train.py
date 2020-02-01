@@ -179,6 +179,8 @@ def wav2train(args):
     logging.info('[+] Generated segments. All done.')
 
 if __name__ == '__main__':
+    logging.getLogger('sox').setLevel(logging.ERROR)
+
     parser = argparse.ArgumentParser()
     parser.add_argument('input_dir')
     parser.add_argument('output_dir')
