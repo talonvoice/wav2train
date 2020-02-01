@@ -69,3 +69,6 @@ This process works best on a Mac or Linux computer.
     #    datasets around on your disk or to a new machine.
     # Only works if clips are in the dirname(.lst)/clips/* directory
     ./wrebase output/
+
+    # Print some basic stats about a dataset, such as number of clips and total hours.
+    ./wstat output/clips.lst
