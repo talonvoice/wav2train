@@ -93,7 +93,7 @@ def segment(audio_file, aligned_json, clips_dir):
             skipped += 1
 
     if skipped:
-        logging.info('[-] Clip {}: skipped {}/{} segments due to bad alignment'.format(name, skipped, len(aligned_json)))
+        logging.debug('[-] Clip {}: skipped {}/{} segments due to bad alignment'.format(name, skipped, len(aligned_json)))
 
 def wav2train(args):
     logfile = os.path.abspath('align.log')
