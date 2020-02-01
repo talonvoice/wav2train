@@ -20,10 +20,8 @@ devnull = open(os.devnull, 'w+')
 
 def align(audio_file, transcript_file, align_dir, jobs=1, verbose=False, model=None):
     linked_transcript = os.path.join(align_dir, os.path.basename(transcript_file))
-    try:
-        os.link(transcript_file, linked_transcript)
-    except FileExistsError:
-        pass
+    with open(linked_transcript, 'w') as o, open(transcript_file, 'r') as f:
+        o.write(f.read())
 
     name    = os.path.basename(audio_file).rsplit('.', 1)[0]
     aligned = os.path.join(align_dir, name + '-aligned.json')
