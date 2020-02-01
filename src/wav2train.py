@@ -19,10 +19,16 @@ align_exe = 'align/align.py'
 
 devnull = open(os.devnull, 'w+')
 
+can_re = re.compile(r'[,\.-?"]')
+def canonicalize(text):
+    text = text.replace("’", "'")
+    text = can_re.sub(' ', text)
+    return text
+
 def align(audio_file, transcript_file, align_dir, jobs=1, verbose=False, model=None):
     linked_transcript = os.path.join(align_dir, os.path.basename(transcript_file))
     with open(linked_transcript, 'w') as o, open(transcript_file, 'r') as f:
-        o.write(f.read())
+        o.write(canonicalize(f.read()))
 
     name    = os.path.basename(audio_file).rsplit('.', 1)[0]
     aligned = os.path.join(align_dir, name + '-aligned.json')
