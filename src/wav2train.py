@@ -114,7 +114,10 @@ def wav2train(args):
     threads = multiprocessing.cpu_count()
     align_pool   = ThreadPool(args.jobs)
     segment_pool = ThreadPool(threads)
-    stt_jobs = max(1, threads // args.jobs)
+    if args.workers is not None:
+        stt_jobs = max(1, args.workers)
+    else:
+        stt_jobs = max(1, threads // args.jobs)
 
     align_queue = []
     print('[+] Collecting files to align')
@@ -172,6 +175,7 @@ if __name__ == '__main__':
     parser.add_argument('output_dir')
     parser.add_argument('--model',   '-m', help='directory containing speech model', type=str)
     parser.add_argument('--jobs',    '-j', help='alignments to run in parallel', type=int, default=1)
+    parser.add_argument('--workers', '-w', help='number parallel transcription workers per job', type=int)
     parser.add_argument('--verbose', '-v', help='print verbose output', action='store_true')
     args = parser.parse_args()
     wav2train(args)
