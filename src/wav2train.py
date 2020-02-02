@@ -207,7 +207,8 @@ def wav2train(args):
     logging.info('[+] Generating segments for ({}) clip(s)'.format(len(segment_queue)))
     with open(clips_lst, 'w') as lst:
         for lines in tqdm(segment_iter, desc='Segment', total=len(segment_queue)):
-            lst.write('\n'.join(lines) + '\n')
+            if lines:
+                lst.write('\n'.join(lines) + '\n')
     logging.info('[+] Generated segments. All done.')
 
 if __name__ == '__main__':
