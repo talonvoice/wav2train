@@ -37,6 +37,7 @@ def align(args):
     with open(linked_transcript, 'w') as o, open(transcript_file, 'r') as f:
         o.write(canonicalize(f.read()))
     argv = ['python', align_exe,
+        '--audio-vad-aggressiveness', '2',
         '--stt-workers',    str(jobs),
         '--output-max-cer', '25',
         '--audio',   audio_file,
