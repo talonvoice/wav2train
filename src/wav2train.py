@@ -1,6 +1,7 @@
-from multiprocessing.pool import ThreadPool
+from multiprocessing.pool import Pool
 from tqdm import tqdm
 import argparse
+import itertools
 import json
 import logging
 import multiprocessing
@@ -24,16 +25,16 @@ def canonicalize(text):
     text = can_re.sub(' ', text)
     return text
 
-def align(audio_file, transcript_file, align_dir, jobs=1, verbose=False, model=None):
+def align(args):
+    size, audio_file, transcript_file, align_dir, jobs, verbose, model = args
+    name = os.path.basename(audio_file).rsplit('.', 1)[0]
+    tlog = os.path.join(align_dir, name + '.tlog')
+    aligned = os.path.join(align_dir, name + '-aligned.json')
+    if os.path.exists(aligned):
+        return audio_file, aligned
     linked_transcript = os.path.join(align_dir, os.path.basename(transcript_file))
     with open(linked_transcript, 'w') as o, open(transcript_file, 'r') as f:
         o.write(canonicalize(f.read()))
-
-    name    = os.path.basename(audio_file).rsplit('.', 1)[0]
-    aligned = os.path.join(align_dir, name + '-aligned.json')
-    tlog    = os.path.join(align_dir, name + '.tlog')
-    if os.path.exists(aligned):
-        return audio_file, aligned
     argv = ['python', align_exe,
         '--stt-workers',    str(jobs),
         '--output-max-cer', '25',
@@ -64,9 +65,11 @@ def align(audio_file, transcript_file, align_dir, jobs=1, verbose=False, model=N
 
 words_re = re.compile(r"[a-zA-Z']+")
 
-def segment(audio_file, aligned_json, clips_dir):
+def segment(args):
+    audio_file, aligned_json, clips_dir = args
     name = os.path.basename(audio_file).split('.')[0]
     skipped = 0
+    results = []
     for i, segment in enumerate(aligned_json):
         # TODO: use a g2p style normalizer to fix numbers? would probably want to do it pre alignment.
         # numbers are one of the main reasons for `aligned != aligned_raw`
@@ -92,10 +95,11 @@ def segment(audio_file, aligned_json, clips_dir):
                 tf.trim(start / 1000, end / 1000)
                 tf.build(audio_file, clip)
             duration = round(sox.file_info.duration(clip) * 1000, 3)
-            yield '{} {} {} {}'.format(subname, clip, duration, text)
+            results.append('{} {} {} {}'.format(subname, clip, duration, text))
         except Exception:
             logging.debug('Error segmenting {}-{}'.format(name, i))
             skipped += 1
+    return results
 
     if skipped:
         logging.debug('[-] Clip {}: skipped {}/{} segments due to bad alignment'.format(name, skipped, len(aligned_json)))
@@ -126,14 +130,15 @@ def wav2train(args):
     os.chdir(dsalign_dir)
 
     threads = multiprocessing.cpu_count()
-    align_pool   = ThreadPool(args.jobs)
-    segment_pool = ThreadPool(threads)
+    align_pool   = Pool(args.jobs)
+    segment_pool = Pool(threads)
     if args.workers is not None:
         stt_jobs = max(1, args.workers)
     else:
         stt_jobs = max(1, threads // args.jobs)
 
     align_queue = []
+    align_args = (align_dir, stt_jobs, args.verbose, model_dir)
     logging.info('[+] Collecting files to align')
     seen_exts   = set()
     unseen_exts = {'flac', 'wav', 'mp3', 'ogg', 'sph', 'aac', 'wma', 'alac'}
@@ -161,27 +166,28 @@ def wav2train(args):
                 unseen_exts.remove(ext)
             sz = ent.stat(follow_symlinks=True).st_size
             audio_path = n_path
-            align_queue.append((sz, audio_path, txt_path))
+            align_queue.append((sz, audio_path, txt_path) + align_args)
 
     align_queue.sort(reverse=True)
     segment_queue = []
+    chunksize = max(1, min(4, len(align_queue) // args.jobs))
+    align_iter = align_pool.imap_unordered(align, align_queue, chunksize=chunksize)
     logging.info('[+] Aligning ({}) transcript(s)'.format(len(align_queue)))
-    align_fn = lambda t: align(t[1], t[2], align_dir, jobs=stt_jobs, verbose=args.verbose, model=model_dir)
-    for audio_path, aligned_json in tqdm(align_pool.imap(align_fn, align_queue), desc='Align', total=len(align_queue)):
+    for audio_path, aligned_json in tqdm(align_iter, desc='Align', total=len(align_queue)):
         try:
             with open(aligned_json, 'r') as f:
                 j = json.load(f)
-            segment_queue.append((audio_path, j))
+            segment_queue.append((audio_path, j, clips_dir))
         except Exception:
             logging.debug('Failed to align {}'.format(audio_path))
     logging.info('[+] Alignment complete')
 
-    segment_fn = lambda t: segment(t[0], t[1], clips_dir)
+    chunksize = max(1, min(4, len(segment_queue) // threads))
+    segment_iter = segment_pool.imap_unordered(segment, segment_queue, chunksize=chunksize)
     logging.info('[+] Generating segments for ({}) clip(s)'.format(len(segment_queue)))
     with open(clips_lst, 'w') as lst:
-        for lines in tqdm(segment_pool.imap(segment_fn, segment_queue), desc='Segment', total=len(segment_queue)):
-            for line in lines: 
-                lst.write(line + '\n')
+        for lines in tqdm(segment_iter, desc='Segment', total=len(segment_queue)):
+            lst.write('\n'.join(lines) + '\n')
     logging.info('[+] Generated segments. All done.')
 
 if __name__ == '__main__':
