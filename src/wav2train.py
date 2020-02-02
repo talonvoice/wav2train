@@ -63,7 +63,7 @@ def align(args):
             continue
         if 'Your CPU supports instructions' in line:
             continue
-        logging.error(line)
+        logging.debug(line)
     return (audio_file, aligned, linked_transcript)
 
 words_re = re.compile(r"[a-zA-Z']+")
