@@ -96,6 +96,8 @@ def segment(args):
             if not os.path.exists(clip):
                 tf = sox.Transformer()
                 tf.trim(start / 1000, end / 1000)
+                tf.convert(16000, 1, 16)
+                tf.remix()
                 tf.build(audio_file, clip)
             duration = round(end - start, 3)
             results.append('{} {} {} {}'.format(subname, clip, duration, text))
