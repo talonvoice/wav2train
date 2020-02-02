@@ -31,9 +31,9 @@ def align(args):
     name = os.path.basename(audio_file).rsplit('.', 1)[0]
     tlog = os.path.join(align_dir, name + '.tlog')
     aligned = os.path.join(align_dir, name + '-aligned.json')
-    if os.path.exists(aligned):
-        return audio_file, aligned
     linked_transcript = os.path.join(align_dir, os.path.basename(transcript_file))
+    if os.path.exists(aligned):
+        return audio_file, aligned, linked_transcript
     with open(linked_transcript, 'w') as o, open(transcript_file, 'r') as f:
         o.write(canonicalize(f.read()))
     argv = ['python', align_exe,
@@ -64,17 +64,19 @@ def align(args):
         if 'Your CPU supports instructions' in line:
             continue
         logging.error(line)
-    return (audio_file, aligned)
+    return (audio_file, aligned, linked_transcript)
 
 words_re = re.compile(r"[a-zA-Z']+")
 
 def segment(args):
-    audio_file, aligned_path, clips_dir = args
+    audio_file, aligned_path, txt_path, clips_dir = args
     name = os.path.basename(audio_file).split('.')[0]
     skipped = 0
     results = []
     with open(aligned_path, 'r') as f:
         aligned_json = json.load(f)
+    with open(txt_path, 'r') as f:
+        transcript = f.read()
     for i, segment in enumerate(aligned_json):
         # TODO: use a g2p style normalizer to fix numbers? would probably want to do it pre alignment.
         # numbers are one of the main reasons for `aligned != aligned_raw`
@@ -90,6 +92,17 @@ def segment(args):
                 logging.debug('a|{}'.format(segment['aligned']))
                 logging.debug('r|{}'.format(segment['aligned-raw']))
                 logging.debug('t|{}'.format(text))
+                skipped += 1
+                continue
+
+            # skip transcripts that aren't snapped to word boundaries
+            text_start, text_end = segment['text-start'], segment['text-end']
+            if text_start > 0 and transcript[text_start-1].strip():
+                logging.debug('[-] Discarding bad start alignment: {}'.format(repr(transcript[text_start-1:text_start+10])))
+                skipped += 1
+                continue
+            if text_end < len(transcript) and transcript[text_end].strip():
+                logging.debug('[-] Discarding bad end alignment: {}'.format(repr(transcript[text_end-1:text_end+10])))
                 skipped += 1
                 continue
 
@@ -180,9 +193,9 @@ def wav2train(args):
     align_pool = Pool(args.jobs)
     align_iter = align_pool.imap_unordered(align, align_queue, chunksize=chunksize)
     logging.info('[+] Aligning ({}) transcript(s)'.format(len(align_queue)))
-    for audio_path, aligned_path in tqdm(align_iter, desc='Align', total=len(align_queue)):
+    for audio_path, aligned_path, txt_path in tqdm(align_iter, desc='Align', total=len(align_queue)):
         try:
-            segment_queue.append((audio_path, aligned_path, clips_dir))
+            segment_queue.append((audio_path, aligned_path, txt_path, clips_dir))
         except Exception:
             logging.debug('Failed to align {}'.format(audio_path))
     logging.info('[+] Alignment complete')
