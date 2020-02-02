@@ -1,6 +1,7 @@
 from multiprocessing.pool import Pool
 from tqdm import tqdm
 import argparse
+import gc
 import itertools
 import json
 import logging
@@ -135,8 +136,6 @@ def wav2train(args):
     os.chdir(dsalign_dir)
 
     threads = multiprocessing.cpu_count()
-    align_pool   = Pool(args.jobs)
-    segment_pool = Pool(threads)
     if args.workers is not None:
         stt_jobs = max(1, args.workers)
     else:
@@ -176,6 +175,8 @@ def wav2train(args):
     align_queue.sort(reverse=True)
     segment_queue = []
     chunksize = max(1, min(4, len(align_queue) // args.jobs))
+    gc.collect()
+    align_pool = Pool(args.jobs)
     align_iter = align_pool.imap_unordered(align, align_queue, chunksize=chunksize)
     logging.info('[+] Aligning ({}) transcript(s)'.format(len(align_queue)))
     for audio_path, aligned_path in tqdm(align_iter, desc='Align', total=len(align_queue)):
@@ -186,6 +187,8 @@ def wav2train(args):
     logging.info('[+] Alignment complete')
 
     chunksize = max(1, min(4, len(segment_queue) // threads))
+    gc.collect()
+    segment_pool = Pool(threads)
     segment_iter = segment_pool.imap_unordered(segment, segment_queue, chunksize=chunksize)
     logging.info('[+] Generating segments for ({}) clip(s)'.format(len(segment_queue)))
     with open(clips_lst, 'w') as lst:
