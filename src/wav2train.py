@@ -67,10 +67,12 @@ def align(args):
 words_re = re.compile(r"[a-zA-Z']+")
 
 def segment(args):
-    audio_file, aligned_json, clips_dir = args
+    audio_file, aligned_path, clips_dir = args
     name = os.path.basename(audio_file).split('.')[0]
     skipped = 0
     results = []
+    with open(aligned_path, 'r') as f:
+        aligned_json = json.load(f)
     for i, segment in enumerate(aligned_json):
         # TODO: use a g2p style normalizer to fix numbers? would probably want to do it pre alignment.
         # numbers are one of the main reasons for `aligned != aligned_raw`
@@ -95,7 +97,7 @@ def segment(args):
                 tf = sox.Transformer()
                 tf.trim(start / 1000, end / 1000)
                 tf.build(audio_file, clip)
-            duration = round(sox.file_info.duration(clip) * 1000, 3)
+            duration = round(end - start, 3)
             results.append('{} {} {} {}'.format(subname, clip, duration, text))
         except Exception:
             logging.debug('Error segmenting {}-{}'.format(name, i))
@@ -174,11 +176,9 @@ def wav2train(args):
     chunksize = max(1, min(4, len(align_queue) // args.jobs))
     align_iter = align_pool.imap_unordered(align, align_queue, chunksize=chunksize)
     logging.info('[+] Aligning ({}) transcript(s)'.format(len(align_queue)))
-    for audio_path, aligned_json in tqdm(align_iter, desc='Align', total=len(align_queue)):
+    for audio_path, aligned_path in tqdm(align_iter, desc='Align', total=len(align_queue)):
         try:
-            with open(aligned_json, 'r') as f:
-                j = json.load(f)
-            segment_queue.append((audio_path, j, clips_dir))
+            segment_queue.append((audio_path, aligned_path, clips_dir))
         except Exception:
             logging.debug('Failed to align {}'.format(audio_path))
     logging.info('[+] Alignment complete')
