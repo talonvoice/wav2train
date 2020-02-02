@@ -73,10 +73,14 @@ def segment(args):
     name = os.path.basename(audio_file).split('.')[0]
     skipped = 0
     results = []
-    with open(aligned_path, 'r') as f:
-        aligned_json = json.load(f)
-    with open(txt_path, 'r') as f:
-        transcript = f.read()
+    try:
+        with open(aligned_path, 'r') as f:
+            aligned_json = json.load(f)
+        with open(txt_path, 'r') as f:
+            transcript = f.read()
+    except Exception:
+        logging.debug('[+] Clip not aligned: {}'.format(txt_path))
+        return []
     for i, segment in enumerate(aligned_json):
         # TODO: use a g2p style normalizer to fix numbers? would probably want to do it pre alignment.
         # numbers are one of the main reasons for `aligned != aligned_raw`
