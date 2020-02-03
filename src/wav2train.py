@@ -90,8 +90,8 @@ def segment(args):
         # numbers are one of the main reasons for `aligned != aligned_raw`
         try:
             text = segment['aligned-raw']
-            start = segment['start']
-            end = segment['end']
+            start = max(0, segment['start'])
+            end   = segment['end']
             if end > len(audio):
                 skipped += 1
                 continue
