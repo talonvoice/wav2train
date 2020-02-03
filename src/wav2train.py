@@ -1,4 +1,5 @@
 from multiprocessing.pool import Pool
+from pydub import AudioSegment
 from tqdm import tqdm
 import argparse
 import gc
@@ -8,7 +9,6 @@ import logging
 import multiprocessing
 import os
 import re
-import sox
 import subprocess
 import sys
 import traceback
@@ -81,6 +81,10 @@ def segment(args):
     except Exception:
         logging.debug('[+] Clip not aligned: {}'.format(txt_path))
         return []
+
+    audio = (AudioSegment.from_file(audio_file)
+             .set_channels(1)
+             .set_frame_rate(16000))
     for i, segment in enumerate(aligned_json):
         # TODO: use a g2p style normalizer to fix numbers? would probably want to do it pre alignment.
         # numbers are one of the main reasons for `aligned != aligned_raw`
@@ -88,6 +92,9 @@ def segment(args):
             text = segment['aligned-raw']
             start = segment['start']
             end = segment['end']
+            if end > len(audio):
+                skipped += 1
+                continue
 
             aligned = segment['aligned'].strip().lower()
             text = ' '.join(words_re.findall(text.lower()))
@@ -113,11 +120,7 @@ def segment(args):
             subname = '{}-{}'.format(name, i)
             clip = '{}/{}.flac'.format(clips_dir, subname)
             if not os.path.exists(clip):
-                tf = sox.Transformer()
-                tf.trim(start / 1000, end / 1000)
-                tf.convert(16000, 1, 16)
-                tf.remix()
-                tf.build(audio_file, clip)
+                audio[start:end].export(clip, format='flac')
             duration = round(end - start, 3)
             results.append('{} {} {} {}'.format(subname, clip, duration, text))
         except Exception:
