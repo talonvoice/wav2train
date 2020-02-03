@@ -69,12 +69,18 @@ def wfilter_batch(w2l_path, clips_lst, threshold):
                           '--maxload', '-1', '--show', '--maxisz=900000000', '--minisz=25', '--mintsz=1'],
                          stdin=devnull, stdout=subprocess.PIPE, stderr=devnull)
 
-    for line in tqdm(p.stdout, desc='Filter', total=len(lines)):
-        line = line.decode('utf8').strip()
-        if line.startswith('[sample:'):
-            ter = float(line.split(' ')[5].strip(',%')) / 100
-            if ter <= threshold:
-                print(line)
+    def sample_iter():
+        for line in p.stdout:
+            line = line.decode('utf8').strip()
+            if line.startswith('[sample:'):
+                yield line
+    for line in tqdm(sample_iter(), desc='Filter', total=len(lines)):
+        parts = line.split(' ')
+        ter = float(parts[5].strip(',%')) / 100
+        if ter <= threshold:
+            name = parts[1].strip(',')
+            if name in lookup:
+                print(lookup[name])
 
 def wfilter(w2l_path, clips_lst, threshold):
     if os.path.exists(os.path.join(w2l_path, 'Test')):
