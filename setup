@@ -1,10 +1,10 @@
-#!/bin/bash -e
+#!/bin/bash
 
 cd "$(dirname "$0")"
-if [[ -e DSAlign && -e DSAlign/venv && -e DSAlign/models/en ]]; then
+if [[ -e DSAlign && -e DSAlign/venv && -e DSAlign/models/en && $# -eq 0 ]]; then
     exit 0
 else
-    echo "[+] DSAlign not found, running setup"
+    echo "[+] Running setup"
 fi
 
 if [[ ! -e DSAlign/bin ]]; then
@@ -15,7 +15,14 @@ fi
 cd DSAlign
 echo '[+] Create DSAlign environment'
 bin/createenv.sh
-echo '[+] Fetch DSAlign model'
-bin/getmodel.sh
-echo '[+] Build KenLM'
-bin/lm-dependencies.sh
+if [[ ! -e models/en/output_graph.pb ]]; then
+    echo '[+] Fetch DSAlign model'
+    bin/getmodel.sh
+fi
+if [[ ! -e dependencies/kenlm ]]; then
+    echo '[+] Build KenLM'
+    bin/lm-dependencies.sh
+fi
+
+. venv/bin/activate
+pip install sentencepiece
