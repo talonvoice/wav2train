@@ -1,6 +1,5 @@
 import os
 import sys
-import tempfile
 import traceback
 
 def rebase(data_dir):
@@ -11,8 +10,8 @@ def rebase(data_dir):
         if name.endswith('.lst'):
             path = os.path.join(data_dir, name)
             print('[+]', path)
-            o = tempfile.NamedTemporaryFile(delete=False)
-            with open(path, 'rb') as f:
+            tmp = os.path.join(os.path.dirname(path), '.{}.tmp'.format(name))
+            with open(tmp, 'wb') as o, open(path, 'rb') as f:
                 for line in f:
                     parts = line.split(b' ', 3)
                     if os.path.basename(os.path.dirname(parts[1])) == b'clips':
@@ -22,10 +21,11 @@ def rebase(data_dir):
             o.close()
             os.rename(path, path + '.tmp')
             try:
-                os.rename(o.name, path)
+                os.rename(tmp, path)
             except Exception:
                 traceback.print_exc()
                 os.rename(path + '.tmp', path)
+                os.unlink(tmp)
                 continue
             os.unlink(path + '.tmp')
 
