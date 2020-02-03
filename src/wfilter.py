@@ -47,13 +47,15 @@ def wfilter_libw2l(w2l_path, clips_lst, threshold):
     pool = multiprocessing.Pool(initializer=init_w2l, initargs=(w2l_path,))
     lines = file_lines(clips_lst)
     for (line, transcript, ter) in tqdm(pool.imap_unordered(test_job, lines), desc='Filter', total=len(lines)):
-        if ter < threshold:
+        if ter <= threshold:
             print(line.strip())
 
 def wfilter_batch(w2l_path, clips_lst, threshold):
     lookup = {}
-    for line in file_lines(clips_lst):
+    lines = file_lines(clips_lst)
+    for line in lines:
         name, clip_path, length, txt = line.strip().split(' ', 3)
+        lookup[name] = line
 
     Test = os.path.join(w2l_path, 'Test')
     am = os.path.join(w2l_path, 'acoustic.bin')
@@ -66,10 +68,13 @@ def wfilter_batch(w2l_path, clips_lst, threshold):
     p = subprocess.Popen([Test, '--am', am, '--tokens', tokens, '--lexicon', lexicon, '--test', clips_lst,
                           '--maxload', '-1', '--show', '--maxisz=900000000', '--minisz=25', '--mintsz=1'],
                          stdin=devnull, stdout=subprocess.PIPE, stderr=devnull)
-    for line in p.stdout:
+
+    for line in tqdm(p.stdout, desc='Filter', total=len(lines)):
+        line = line.decode('utf8').strip()
         if line.startswith('[sample:'):
-            print('sample!')
-        print('stdout', line)
+            ter = float(line.split(' ')[5].strip(',%')) / 100
+            if ter <= threshold:
+                print(line)
 
 def wfilter(w2l_path, clips_lst, threshold):
     if os.path.exists(os.path.join(w2l_path, 'Test')):
