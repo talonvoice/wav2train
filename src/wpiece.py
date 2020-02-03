@@ -16,8 +16,9 @@ def build_corpus(name, lists):
     return corpus_path, words
 
 def train_spm(name, corpus_path, vocab_size=10000):
-    spm_args = "--input={} --model_prefix={} --vocab_size={} --hard_vocab_limit=false --normalization_rule_name=nmt_nfkc".format(
-            corpus_path, name, int(vocab_size))
+    spm_args = ('--input={} --model_prefix={} --vocab_size={} --hard_vocab_limit=false '
+                '--character_coverage=1.0 --normalization_rule_name=nmt_nfkc').format(
+                    corpus_path, name, int(vocab_size))
     spm.SentencePieceTrainer.Train(spm_args)
 
 def build_lexicon(name, words, nbest=10):
