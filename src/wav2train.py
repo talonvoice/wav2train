@@ -166,7 +166,7 @@ def wav2train(args):
     align_args = (align_dir, stt_jobs, args.verbose, model_dir)
     logging.info('[+] Collecting files to align')
     seen_exts   = set()
-    unseen_exts = {'flac', 'wav', 'mp3', 'ogg', 'sph', 'aac', 'wma', 'alac'}
+    unseen_exts = {'flac', 'wav', 'mp3', 'm4a', 'ogg', 'sph', 'aac', 'wma', 'alac'}
     for ent in os.scandir(indir):
         if ent.name.endswith('.txt'):
             txt_path = ent.path
