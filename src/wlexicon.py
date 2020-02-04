@@ -12,6 +12,8 @@ def all_words(name, lists):
     return words
 
 def leters(word):
+    if word.startswith("'") and word.endswith("'"):
+        word = word[1:-1].strip()
     out = []
     last = None
     for c in word:
