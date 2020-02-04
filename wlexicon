@@ -1,0 +1,5 @@
+#!/bin/bash -eu
+basedir=$(cd "$(dirname "$0")" && pwd)
+"$basedir/setup"
+. "$basedir/DSAlign/venv/bin/activate"
+python "$basedir/src/wlexicon.py" "$@"
