@@ -25,6 +25,8 @@ def build_lexicon(name, words, nbest=10):
     lexicon_path = name + '.lexicon'
     with open(lexicon_path, 'w') as o:
         for word in sorted(words):
+            if not word.strip("'"):
+                continue
             o.write('{} {}\n'.format(word, leters(word)))
     return lexicon_path
 
