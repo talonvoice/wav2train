@@ -66,7 +66,7 @@ def wfilter_batch(w2l_path, clips_lst, threshold):
 
     devnull = open(os.devnull, 'w+')
     p = subprocess.Popen([Test, '--am', am, '--tokens', tokens, '--lexicon', lexicon, '--test', clips_lst,
-                          '--maxload', '-1', '--show', '--maxisz=900000000', '--minisz=25', '--mintsz=1'],
+                          '--maxload', '-1', '--show', '--maxisz=900000000', '--minisz=25', '--mintsz=1', '--datadir='],
                          stdin=devnull, stdout=subprocess.PIPE, stderr=devnull)
 
     def sample_iter():
