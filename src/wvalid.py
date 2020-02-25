@@ -13,7 +13,8 @@ def valid_fn(line):
         audio = AudioSegment.from_file(path)
     except Exception:
         return None
-    if abs(len(audio) - float(parts[2])) < 1.0:
+    l = len(audio)
+    if l > 1.0 and abs(l - float(parts[2])) < 1.0:
         return line
     return None
 
