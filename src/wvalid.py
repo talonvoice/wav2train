@@ -1,8 +1,10 @@
 from multiprocessing import Pool
-from pydub import AudioSegment
 from tqdm import tqdm
 import os
+import subprocess
 import sys
+
+devnull = open(os.devnull, 'w+')
 
 def valid_fn(line):
     parts = line.split(' ', 3)
@@ -10,11 +12,13 @@ def valid_fn(line):
         return
     path = parts[1]
     try:
-        audio = AudioSegment.from_file(path)
+        argv = ['ffprobe', '-i', path, '-show_entries', 'format=duration', '-v', 'quiet', '-of', 'csv=p=0']
+        p = subprocess.Popen(argv, stdin=devnull, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = p.communicate()
+        length = float(out.strip()) * 1000
     except Exception:
         return None
-    l = len(audio)
-    if l > 1.0 and abs(l - float(parts[2])) < 1.0:
+    if length > 1.0 and abs(length - float(parts[2])) < 1.0:
         return line
     return None
 
