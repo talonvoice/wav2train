@@ -68,10 +68,9 @@ def align(args):
     except Exception: pass
     return (audio_file, aligned, linked_transcript)
 
-words_re = re.compile(r"[a-zA-Z']+")
-
 def segment(args):
-    audio_file, aligned_path, txt_path, clips_dir = args
+    audio_file, aligned_path, txt_path, clips_dir, alphabet = args
+    words_re = re.compile(alphabet)
     name = os.path.basename(audio_file).split('.')[0]
     skipped = 0
     results = []
@@ -205,7 +204,7 @@ def wav2train(args):
     logging.info('[+] Aligning ({}) transcript(s)'.format(len(align_queue)))
     for audio_path, aligned_path, txt_path in tqdm(align_iter, desc='Align', total=len(align_queue)):
         try:
-            segment_queue.append((audio_path, aligned_path, txt_path, clips_dir))
+            segment_queue.append((audio_path, aligned_path, txt_path, clips_dir, args.alphabet))
         except Exception:
             logging.debug('Failed to align {}'.format(audio_path))
     logging.info('[+] Alignment complete')
@@ -227,9 +226,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('input_dir')
     parser.add_argument('output_dir')
-    parser.add_argument('--model',   '-m', help='directory containing speech model', type=str)
-    parser.add_argument('--jobs',    '-j', help='alignments to run in parallel', type=int, default=1)
-    parser.add_argument('--workers', '-w', help='number parallel transcription workers per job', type=int)
-    parser.add_argument('--verbose', '-v', help='print verbose output', action='store_true')
+    parser.add_argument('--model',    '-m', help='directory containing speech model', type=str)
+    parser.add_argument('--jobs',     '-j', help='alignments to run in parallel', type=int, default=1)
+    parser.add_argument('--workers',  '-w', help='number parallel transcription workers per job', type=int)
+    parser.add_argument('--verbose',  '-v', help='print verbose output', action='store_true')
+    parser.add_argument('--alphabet',       help='constrain words to this alphabet (regex)', type=str, default="[a-zA-Z']+")
     args = parser.parse_args()
     wav2train(args)
