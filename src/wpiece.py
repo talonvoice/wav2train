@@ -3,8 +3,17 @@ import os
 import sentencepiece as spm
 import sys
 
-def build_corpus(name, lists):
+def build_corpus(name, lists=(), corpora=()):
     words = set()
+    if not lists and len(corpora) == 1:
+        # fast path for using an existing text corpus
+        with open(corpora[0], 'r') as f:
+            for line in f:
+                for word in line.strip().split():
+                    # TODO: use an alphabet whitelist like wav2train?
+                    if word: words.add(word.lower())
+        return corpora[0], words
+
     corpus_path = name + '.corpus'
     with open(corpus_path, 'w') as o:
         for lst in lists:
@@ -14,6 +23,13 @@ def build_corpus(name, lists):
                     for word in text.strip().split():
                         if word: words.add(word)
                     o.write(text + '\n')
+        for text in corpora:
+            with open(text, 'r') as f:
+                for line in f:
+                    for word in line.strip().split():
+                        # TODO: use an alphabet whitelist like wav2train?
+                        if word: words.add(word.lower())
+                    o.write(line.rstrip() + '\n')
     return corpus_path, words
 
 def train_spm(name, corpus_path, vocab_size=10000):
@@ -25,15 +41,22 @@ def train_spm(name, corpus_path, vocab_size=10000):
 def build_lexicon(name, words, nbest=10, spm_path=None):
     if spm_path is None:
         spm_path = name
+    model_path = spm_path + '.model'
+    vocab_path = spm_path + '.vocab'
+    if os.path.isfile(spm_path) and not os.path.isfile(model_path):
+        model_path = spm_path
     sp = spm.SentencePieceProcessor()
-    sp.Load(spm_path + '.model')
+    sp.Load(spm_path)
 
-    exclude = ('<unk>', '<s>', '</s>')
-    with open(name + '.tokens', 'w') as o, open(spm_path + '.vocab', 'r') as f:
-        for line in f:
-            tok = line.strip().split('\t', 1)[0]
-            if tok not in exclude:
-                o.write(tok.replace('\u2581', '_') + '\n')
+    if not os.path.exists(vocab_path):
+        print('[-] spm vocab file ({}) not found, skipping token generation'.format(vocab_path))
+    else:
+        exclude = ('<unk>', '<s>', '</s>')
+        with open(name + '.tokens', 'w') as o, open(spm_path + '.vocab', 'r') as f:
+            for line in f:
+                tok = line.strip().split('\t', 1)[0]
+                if tok not in exclude:
+                    o.write(tok.replace('\u2581', '_') + '\n')
 
     lexicon_path = name + '.lexicon'
     with open(lexicon_path, 'w') as o:
@@ -47,15 +70,22 @@ def build_lexicon(name, words, nbest=10, spm_path=None):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('name', help='model name prefix', type=str)
-    parser.add_argument('clips', help='path to clips.lst', type=str, nargs='+')
+    parser.add_argument('--text', help='path to corpus text file(s)', type=str, nargs='*')
+    parser.add_argument('--list',  help='w2l clips.lst file(s)', type=str, nargs='*')
     parser.add_argument('--model', '-m', help='pre-trained sentencepiece model', type=str, default=None)
     parser.add_argument('--nbest', '-n', help='number of word piece samples for lexicon', type=int, default=10)
     args = parser.parse_args()
 
+    if not (args.text or args.list):
+        print('Error: you must provide --texts or --list')
+        parser.print_help()
+        sys.exit(1)
+
     name = args.name
-    lists = [os.path.abspath(p) for p in args.clips]
-    print('[+] Building corpus')
-    corpus, words = build_corpus(args.name, lists)
+    lists = [os.path.abspath(p) for p in args.list or ()]
+    corpora = [os.path.abspath(p) for p in args.text or ()]
+    print('[+] Processing corpus')
+    corpus, words = build_corpus(args.name, lists=lists, corpora=corpora)
     print('[ ] -> {}'.format(corpus))
     if args.model:
         print('[+] Using existing SentencePieceModel:', args.model)

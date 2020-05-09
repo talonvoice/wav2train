@@ -63,7 +63,7 @@ This process works best on a Mac or Linux computer.
 
     ```
     # generates example.lexicon, example.tokens
-    ./wpiece example output/clips.lst
+    ./wpiece example --list output/clips.lst
     ```
 
 ## Extras
@@ -81,7 +81,7 @@ This process works best on a Mac or Linux computer.
     ./wstat output/clips.lst
 
     # Generate word piece vocab and lexicon from one or more lst files.
-    ./wpiece name output/clips.lst
+    ./wpiece name --list output/clips.lst
 
     # Filter a dataset using wav2letter by emission TER (<50% in this example)
     ./wfilter w2l-align/ output/clips.lst 0.5 > output/filter.lst
