@@ -27,7 +27,7 @@ def get_book(dst, gut_id):
         return book_path
     raise Exception('could not find book url')
 
-def main(src, dst):
+def main(src, audio_src, dst):
     os.makedirs(dst, exist_ok=True)
 
     queue = []
@@ -40,34 +40,71 @@ def main(src, dst):
         try:
             with open(json_path, 'r', encoding='utf8') as f:
                 j = json.load(f)
-            flac_path = json_path.rsplit('.', 1)[0] + '.flac'
+            pathname = os.path.basename(json_path).rsplit('.', 1)[0]
+            json_dir = os.path.dirname(json_path)
 
-            book_meta = j['book_meta']
-            url_text = book_meta['url_text_source']
-            url = urlparse(url_text)
-            if url_text and url.hostname and url.hostname.endswith('gutenberg.org'):
-                match = book_id_re.search(url.path)
-                if match:
-                    spk_id = j['speaker']
-                    lv_id = j['book_meta']['id']
-                    gut_id = match.group(1)
-                    id_str = '{}_{}_{}'.format(spk_id, lv_id, gut_id)
+            if pathname.endswith('_speaker_data'):
+                continue
+
+            audio_files = []
+            if pathname.endswith('_metadata'):
+                pathname = pathname.rsplit('_', 1)[0]
+                # partial mp3 path
+                book_meta = j
+                speaker_data_path = os.path.join(json_dir, pathname) + '_speaker_data.json'
+                with open(speaker_data_path, 'r') as f:
+                    speaker_data = json.load(f)
+
+                speakers = dict(zip([name.rsplit('_', 1)[0] for name in speaker_data['names']],
+                                    [reader[0] for reader in speaker_data['readers'] if reader]))
+                mp3_dir = os.path.join(audio_src, pathname)
+                for entry in os.scandir(mp3_dir):
+                    if entry.path.endswith(('.mp3', '.flac')):
+                        reader = speakers.get(entry.name.rsplit('_', 1)[0], '0')
+                        audio_files.append((reader, entry.path))
+            else:
+                # flac prepared path
+                audio_path = os.path.join(json_dir, pathname + '.flac')
+                if not os.path.exists(audio_path):
+                    continue
+                book_meta = j['book_meta']
+                audio_files = [(j['speaker'], audio_path)]
+
+            txt_path = os.path.join(json_dir, pathname) + '_text.txt'
+            book_path = ''
+            if os.path.exists(txt_path):
+                book_path = txt_path
+            else:
+                url_text = book_meta['url_text_source']
+                url = urlparse(url_text)
+                if url_text and url.hostname and url.hostname.endswith('gutenberg.org'):
+                    match = book_id_re.search(url.path)
+                    if match:
+                        gut_id = match.group(1)
+                        book_path = get_book(dst, gut_id)
+
+            if book_path:
+                for spk_id, audio_file in sorted(audio_files):
+                    lv_id = book_meta['id']
+                    id_str = '{}_{}'.format(spk_id, lv_id)
                     nonce = name_nonces[id_str]
                     name_nonces[id_str] += 1
                     name = '{}-{}'.format(id_str, nonce)
 
                     dst_name = os.path.join(dst, name)
-                    book_path = get_book(dst, gut_id)
                     try: os.link(book_path, dst_name + '.txt')
                     except FileExistsError: pass
-                    try: os.link(flac_path, dst_name + '.flac')
+                    try: os.link(audio_file, dst_name + '.' + audio_file.rsplit('.', 1)[1])
                     except FileExistsError: pass
         except Exception:
             print('Error at', json_path)
             traceback.print_exc()
 
 if __name__ == '__main__':
-    if len(sys.argv) != 3:
-        print('Usage: librilight-prep <input> <output>')
+    if len(sys.argv) < 3:
+        print('Usage: librilight-prep <input> [<audio_dir>] <output>')
         sys.exit(1)
-    main(sys.argv[1], sys.argv[2])
+    if len(sys.argv) == 4:
+        main(sys.argv[1], sys.argv[2], sys.argv[3])
+    else:
+        main(sys.argv[1], sys.argv[1], sys.argv[2])
