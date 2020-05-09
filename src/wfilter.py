@@ -54,7 +54,10 @@ def wfilter_batch(w2l_path, clips_lst, threshold):
     lookup = {}
     lines = file_lines(clips_lst)
     for line in lines:
-        name, clip_path, length, txt = line.strip().split(' ', 3)
+        try:
+            name, clip_path, length, txt = line.strip().split(' ', 3)
+        except Exception:
+            continue
         lookup[name] = line
 
     Test = os.path.join(w2l_path, 'Test')
