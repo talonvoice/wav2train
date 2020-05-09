@@ -1,3 +1,4 @@
+import argparse
 import os
 import sentencepiece as spm
 import sys
@@ -21,12 +22,14 @@ def train_spm(name, corpus_path, vocab_size=10000):
                     corpus_path, name, int(vocab_size))
     spm.SentencePieceTrainer.Train(spm_args)
 
-def build_lexicon(name, words, nbest=10):
+def build_lexicon(name, words, nbest=10, spm_path=None):
+    if spm_path is None:
+        spm_path = name
     sp = spm.SentencePieceProcessor()
-    sp.Load(name + '.model')
+    sp.Load(spm_path + '.model')
 
     exclude = ('<unk>', '<s>', '</s>')
-    with open(name + '.tokens', 'w') as o, open(name + '.vocab', 'r') as f:
+    with open(name + '.tokens', 'w') as o, open(spm_path + '.vocab', 'r') as f:
         for line in f:
             tok = line.strip().split('\t', 1)[0]
             if tok not in exclude:
@@ -42,17 +45,28 @@ def build_lexicon(name, words, nbest=10):
     return lexicon_path
 
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print('Usage: wpiece <name> <clips.lst> [clips.lst...]')
-        sys.exit(1)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('name', help='model name prefix', type=str)
+    parser.add_argument('clips', help='path to clips.lst', type=str, nargs='+')
+    parser.add_argument('--model', '-m', help='pre-trained sentencepiece model', type=str, default=None)
+    parser.add_argument('--nbest', '-n', help='number of word piece samples for lexicon', type=int, default=10)
+    args = parser.parse_args()
 
-    name = sys.argv[1]
-    lists = [os.path.abspath(p) for p in sys.argv[2:]]
+    name = args.name
+    lists = [os.path.abspath(p) for p in args.clips]
     print('[+] Building corpus')
-    corpus, words = build_corpus(name, lists)
+    corpus, words = build_corpus(args.name, lists)
     print('[ ] -> {}'.format(corpus))
-    print('[+] Training SentencePieceModel')
-    train_spm(name, corpus)
+    if args.model:
+        print('[+] Using existing SentencePieceModel:', args.model)
+        # strip .model so we get .vocab too
+        model = args.model
+        if model.endswith('.model'):
+            model = model.rsplit('.', 1)[0]
+    else:
+        print('[+] Training SentencePieceModel')
+        train_spm(args.name, corpus)
+        model = args.name
     print('[+] Generating lexicon')
-    lexicon = build_lexicon(name, words)
+    lexicon = build_lexicon(args.name, words, nbest=args.nbest, spm_path=model)
     print('[ ] -> {}'.format(lexicon))
