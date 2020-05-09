@@ -137,7 +137,8 @@ def wav2train(args):
     logfile = os.path.abspath('align.log')
     logging.basicConfig(filename=logfile, level=logging.DEBUG)
     stream = logging.StreamHandler()
-    stream.setLevel(logging.INFO)
+    if not args.verbose:
+        stream.setLevel(logging.INFO)
     logging.getLogger().addHandler(stream)
 
     indir     = os.path.abspath(args.input_dir)
