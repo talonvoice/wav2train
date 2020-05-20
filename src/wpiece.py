@@ -46,13 +46,13 @@ def build_lexicon(name, words, nbest=10, spm_path=None):
     if os.path.isfile(spm_path) and not os.path.isfile(model_path):
         model_path = spm_path
     sp = spm.SentencePieceProcessor()
-    sp.Load(spm_path)
+    sp.Load(model_path)
 
     if not os.path.exists(vocab_path):
         print('[-] spm vocab file ({}) not found, skipping token generation'.format(vocab_path))
     else:
         exclude = ('<unk>', '<s>', '</s>')
-        with open(name + '.tokens', 'w') as o, open(spm_path + '.vocab', 'r') as f:
+        with open(name + '.tokens', 'w') as o, open(vocab_path, 'r') as f:
             for line in f:
                 tok = line.strip().split('\t', 1)[0]
                 if tok not in exclude:
