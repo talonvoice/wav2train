@@ -32,10 +32,12 @@ def build_corpus(name, lists=(), corpora=()):
                     o.write(line.rstrip() + '\n')
     return corpus_path, words
 
-def train_spm(name, corpus_path, vocab_size=10000):
-    spm_args = ('--input={} --model_prefix={} --vocab_size={} --hard_vocab_limit=false '
-                '--character_coverage=1.0 --normalization_rule_name=nmt_nfkc').format(
-                    corpus_path, name, int(vocab_size))
+def train_spm(name, corpus_path, vocab_size=10000, nthread=1):
+    spm_args = ('--input={} --model_prefix={} --vocab_size={} --num_threads={} '
+                '--hard_vocab_limit=false '
+                '--character_coverage=1.0 '
+                '--normalization_rule_name=nmt_nfkc').format(
+                    corpus_path, name, int(vocab_size), int(nthread))
     spm.SentencePieceTrainer.Train(spm_args)
 
 def build_lexicon(name, words, nbest=10, spm_path=None):
@@ -72,12 +74,14 @@ if __name__ == '__main__':
     parser.add_argument('name', help='model name prefix', type=str)
     parser.add_argument('--text', help='path to corpus text file(s)', type=str, nargs='*')
     parser.add_argument('--list',  help='w2l clips.lst file(s)', type=str, nargs='*')
-    parser.add_argument('--model', '-m', help='pre-trained sentencepiece model', type=str, default=None)
-    parser.add_argument('--nbest', '-n', help='number of word piece samples for lexicon', type=int, default=10)
+    parser.add_argument('--model',   '-m', help='pre-trained sentencepiece model', type=str, default=None)
+    parser.add_argument('--nbest',   '-n', help='number of word piece samples for lexicon', type=int, default=10)
+    parser.add_argument('--ntoken',  '-w', help='number of tokens in vocabulary to train', type=int, default=10000)
+    parser.add_argument('--nthread', '-j', help='number of threads to use for training', type=int, default=1)
     args = parser.parse_args()
 
     if not (args.text or args.list):
-        print('Error: you must provide --texts or --list')
+        print('Error: you must provide --text or --list')
         parser.print_help()
         sys.exit(1)
 
@@ -95,7 +99,7 @@ if __name__ == '__main__':
             model = model.rsplit('.', 1)[0]
     else:
         print('[+] Training SentencePieceModel')
-        train_spm(args.name, corpus)
+        train_spm(args.name, corpus, vocab_size=args.ntoken, nthread=args.nthread)
         model = args.name
     print('[+] Generating lexicon')
     lexicon = build_lexicon(args.name, words, nbest=args.nbest, spm_path=model)
