@@ -16,7 +16,7 @@ for clips_lst in "$@"; do
              [[ -e "$clip" ]] || continue
         fi
         text=$(echo "$line" | cut -d' ' -f4-)
-        echo "[+] $text"
-        play -q "$clip" 2>&1 || exit
+        echo "[+] $text | $clip"
+        play -q "$clip" 2>&1 silence 1 0.1 1% 1 0.1 1% speed 1.25 || exit
     done < "$clips_lst"
 done
