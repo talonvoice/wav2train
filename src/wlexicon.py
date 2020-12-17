@@ -14,9 +14,11 @@ def all_words(name, lists, raw=False):
                     if word: words.add(word)
     return words
 
-def leters(word):
+def leters(word, ctc=False):
     if word.startswith("'") and word.endswith("'"):
         word = word[1:-1].strip()
+    if ctc:
+        return ' '.join(word)
     out = []
     last = None
     for c in word:
@@ -24,28 +26,31 @@ def leters(word):
         last = c
     return ' '.join(out)
 
-def build_lexicon(name, words, nbest=10):
+def build_lexicon(name, words, nbest=10, ctc=False):
     lexicon_path = name + '.lexicon'
     with open(lexicon_path, 'w') as o:
         for word in sorted(words):
             if not word.strip("'"):
                 continue
-            o.write('{} {}\n'.format(word, leters(word)))
+            o.write('{} {}\n'.format(word, leters(word, ctc=ctc)))
     return lexicon_path
 
-if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print('Usage: wlexicon [--raw] <name> <clips.lst> [clips.lst...]')
-        sys.exit(1)
+def usage():
+    print('Usage: wlexicon [--ctc] [--raw] <name> <clips.lst> [clips.lst...]')
+    sys.exit(1)
 
-    raw = sys.argv[1] == '--raw'
-    if raw:
-        sys.argv = [sys.argv[0]] + sys.argv[2:]
+if __name__ == '__main__':
+    ctc = '--ctc' in sys.argv
+    raw = '--raw' in sys.argv
+    if ctc: sys.argv.remove('--ctc')
+    if raw: sys.argv.remove('--raw')
+    if len(sys.argv) < 2:
+        usage()
 
     name = sys.argv[1]
     lists = [os.path.abspath(p) for p in sys.argv[2:]]
     print('[+] Finding words')
     words = all_words(name, lists, raw=raw)
     print('[+] Generating lexicon')
-    lexicon = build_lexicon(name, words)
+    lexicon = build_lexicon(name, words, ctc=ctc)
     print('[ ] -> {}'.format(lexicon))
