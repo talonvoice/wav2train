@@ -48,7 +48,7 @@ This process works best on a Mac or Linux computer.
 4. [Optional] Use the `wfilter` tool to filter out "bad inputs" using a pretrained model and an error threshold.
 
     ```
-    ./wfilter output/clips.lst > output/filter.lst
+    ./wfilter --help
     ```
 
 5. [Optional] Use the `wsplit` tool to auto-split a clips.lst file into `dev.lst,test.lst,train.lst`.
@@ -59,7 +59,7 @@ This process works best on a Mac or Linux computer.
     ./wsplit output/filter.lst
     ```
 
-5. [Optional] Use the `wpiece` tool to generate word piece tokens + lexicon.
+5. [Optional] Use the `wpiece` tool to generate word piece tokens + lexicon. (The `wlexicon` tool can do the same thing for character lexicons.)
 
     ```
     # generates example.lexicon, example.tokens
@@ -83,5 +83,8 @@ This process works best on a Mac or Linux computer.
     # Generate word piece vocab and lexicon from one or more lst files.
     ./wpiece name --list output/clips.lst
 
-    # Filter a dataset using wav2letter by emission TER (<50% in this example)
-    ./wfilter w2l-align/ output/clips.lst 0.5 > output/filter.lst
+    # Generate character lexicon from one or more lst files.
+    ./wlexicon name output/clips.lst
+
+    # Filter a list dataset by many criteria
+    ./wfilter --help
