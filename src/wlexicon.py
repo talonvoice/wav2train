@@ -1,12 +1,15 @@
 import os
 import sys
 
-def all_words(name, lists):
+def all_words(name, lists, raw=False):
     words = set()
     for lst in lists:
         with open(lst, 'r') as f:
             for line in f:
-                text = line.split(' ', 3)[-1].strip()
+                if raw:
+                    text = line.strip()
+                else:
+                    text = line.split(' ', 3)[-1].strip()
                 for word in text.strip().split():
                     if word: words.add(word)
     return words
@@ -32,13 +35,17 @@ def build_lexicon(name, words, nbest=10):
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print('Usage: wlexicon <name> <clips.lst> [clips.lst...]')
+        print('Usage: wlexicon [--raw] <name> <clips.lst> [clips.lst...]')
         sys.exit(1)
+
+    raw = sys.argv[1] == '--raw'
+    if raw:
+        sys.argv = [sys.argv[0]] + sys.argv[2:]
 
     name = sys.argv[1]
     lists = [os.path.abspath(p) for p in sys.argv[2:]]
     print('[+] Finding words')
-    words = all_words(name, lists)
+    words = all_words(name, lists, raw=raw)
     print('[+] Generating lexicon')
     lexicon = build_lexicon(name, words)
     print('[ ] -> {}'.format(lexicon))
