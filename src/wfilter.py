@@ -126,7 +126,7 @@ def filter_valid_audio(lines):
         if line:
             yield line
 
-def filter_test(args, lines):
+def filter_test(args, lines, desc):
     lookup = {}
     for line in lines:
         try:
@@ -151,7 +151,7 @@ def filter_test(args, lines):
                 if line.startswith('[sample:'):
                     yield line
 
-        for line in tqdm(sample_iter(), desc='Acoustic', total=len(lines)):
+        for line in tqdm(sample_iter(), desc='{} (w2l)'.format(desc), total=len(lines)):
             parts = line.split(' ')
             WER = float(parts[3].strip(',%')) / 100
             TER = float(parts[5].strip(',%')) / 100
@@ -162,8 +162,9 @@ def filter_test(args, lines):
 
 class Stats:
     def __init__(self, total):
-        self.counts = {'input': total}
-        self.order = ['input']
+        self.total = total
+        self.counts = {}
+        self.order = []
         self.minisz = self.minlsz = self.minwsz = sys.maxsize
         self.maxisz = self.maxlsz = self.maxwsz = 0
 
@@ -191,20 +192,19 @@ class Stats:
     def dump(self):
         eprint = lambda *args: print(*args, file=sys.stderr)
         name_pad = max(len(name) for name in self.order) + 1
-        eprint('Pipeline:')
-        last_count = None
+
+        steps = []
+        last_count = self.total
         for name in self.order:
             count = self.counts[name]
-            diff_text = ' ({:,})'.format(count - last_count) if last_count is not None else ''
-            msg = '  {} {:,}{}'.format((name + ':').ljust(name_pad), count, diff_text)
+            text = '{} ({:,})'.format(name, count - last_count)
+            steps.append(text)
             last_count = count
-            eprint(msg)
-        eprint()
-        eprint('Stats:')
-        eprint('  audio: min={}ms  max={}ms'.format(int(self.minisz), int(self.maxisz)))
-        eprint('  chars: min={}  max={}'.format(self.minlsz, self.maxlsz))
-        eprint('  words: min={}  max={}'.format(self.minwsz, self.maxwsz))
-        eprint()
+        eprint('| pipeline: input={} > {}'.format(self.total, ' > '.join(steps)))
+        audio_stats = 'audio (min={}ms max={}ms)'.format(int(self.minisz), int(self.maxisz))
+        char_stats = 'chars (min={} max={})'.format(self.minlsz, self.maxlsz)
+        word_stats = 'words (min={} max={})'.format(self.minwsz, self.maxwsz)
+        eprint('| stats:    {} {} {}'.format(audio_stats, char_stats, word_stats))
 
 def wfilter(args):
     w2l_args = (args.w2l_test, args.am)
@@ -237,10 +237,10 @@ def wfilter(args):
         lines = filter_valid_audio(lines)
         lines = stats.wrap('valid', lines)
 
-    line_iter = tqdm(lines, desc='Filter', total=total)
+    line_iter = tqdm(lines, desc=args.desc, total=total)
     if all(w2l_args):
         lines = list(line_iter)
-        line_iter = filter_test(args, lines)
+        line_iter = filter_test(args, lines, args.desc)
         line_iter = stats.wrap('w2l_test', line_iter)
 
     for line in line_iter:
@@ -254,14 +254,14 @@ if __name__ == '__main__':
     Example: wfilter clips.lst --valid --audio 35-33000 --chars 1-600 > clips-filter.lst
     Example: wfilter clips.lst --w2l_test ~/wav2letter/build/Test --am acoustic.bin --tokens tokens.txt --LER 0.5 > clips-filter.lst
     '''.rstrip()
-    parser = argparse.ArgumentParser(epilog=example)
+    parser = argparse.ArgumentParser()
     parser.add_argument('lst',        help='input lst dataset file', type=str)
     parser.add_argument('--w2l_test', help='path to wav2letter Test binary', type=str)
     parser.add_argument('--am',       help='path to wav2letter acoustic model', type=str)
     parser.add_argument('--tokens',   help='path to wav2letter tokens', type=str)
     parser.add_argument('--LER',      help='minimum Letter Error Rate', type=float)
     parser.add_argument('--WER',      help='minimum Word Error Rate', type=float)
-
+    parser.add_argument('--desc',     help='description (for progress bar)', type=str)
     parser.add_argument('--audio',    help='filter on audio length range (range MIN-MAX milliseconds)', type=str)
     parser.add_argument('--chars',    help='filter on char count (range MIN-MAX chars)', type=str)
     parser.add_argument('--regex',    help="filter transcripts not matching regex e.g. --transcript \"^[a-zA-Z' ]+$\"", type=str)
