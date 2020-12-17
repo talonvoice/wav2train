@@ -5,6 +5,12 @@ for lst in "$@"; do
     sum=$(awk '{sum+=$3}; END {printf "%.3f\n", sum}' "$lst")
     hours=$(echo "scale=3; $sum / 1000.0 / 60.0 / 60.0" | bc -l)
     count=$(wc -l "$lst" | awk '{print $1}')
+    maxtsz=$(cut -d' ' -f4- "$lst" | wc -L)
+    maxisz=$(cut -d' ' -f3  "$lst" | sort -rn | head -n1)
+    minisz=$(cut -d' ' -f3  "$lst" | sort -n | head -n1)
     echo "  $count clips"
     echo "  $hours hours"
+    echo "  maxtsz=$maxtsz"
+    echo "  minisz=$minisz"
+    echo "  maxisz=$maxisz"
 done
