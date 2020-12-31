@@ -52,7 +52,7 @@ def miniflac_read_file(path):
         status = flac_lib.FLAC__stream_decoder_init_file(
                 decoder, path.encode('utf8'), miniflac_stream_read, flac_ffi.NULL, miniflac_stream_error, sample_count)
         if status:
-            err = ffi_lib.FLAC__stream_encoder_get_state(decoder)
+            err = flac_lib.FLAC__stream_encoder_get_state(decoder)
             raise RuntimeError('FLAC decode init failed: {}'.format(err))
         if not flac_lib.FLAC__stream_decoder_process_until_end_of_stream(decoder):
             raise RuntimeError('FLAC decode failed')
