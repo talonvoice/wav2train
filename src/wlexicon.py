@@ -15,6 +15,7 @@ def all_words(name, lists, raw=False):
     return words
 
 def leters(word, ctc=False):
+    word = word.lower()
     if word.startswith("'") and word.endswith("'"):
         word = word[1:-1].strip()
     if ctc:
@@ -32,7 +33,7 @@ def build_lexicon(name, words, nbest=10, ctc=False):
         for word in sorted(words):
             if not word.strip("'"):
                 continue
-            o.write('{} {}\n'.format(word, leters(word, ctc=ctc)))
+            o.write('{} {} |\n'.format(word, leters(word, ctc=ctc)))
     return lexicon_path
 
 def usage():
