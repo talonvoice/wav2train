@@ -1,9 +1,10 @@
-from multiprocessing import Pool
+import multiprocessing as mp
 from tempfile import NamedTemporaryFile
 from tqdm import tqdm
 import argparse
 import cffi
 import itertools
+import math
 import os
 import re
 import subprocess
@@ -94,7 +95,8 @@ def valid_audio_fn(line):
             length = float(out.strip()) * 1000
     except Exception:
         return None
-    if length > 1.0 and abs(length - float(parts[2])) < 1.0:
+    # TODO: reltol vs abstol?
+    if length > 1.0 and abs(length - float(parts[2])) < 100.0:
         return line
     return None
 
@@ -121,12 +123,12 @@ def filter_regex(lines, regex):
             yield line
 
 def filter_valid_audio(lines):
-    pool = Pool()
+    pool = mp.Pool()
     for line in pool.imap_unordered(valid_audio_fn, lines):
         if line:
             yield line
 
-def filter_test(args, lines, desc):
+def filter_test_worker(n, args, lines, q):
     lookup = {}
     for line in lines:
         try:
@@ -139,11 +141,12 @@ def filter_test(args, lines, desc):
         tmp_lst.write('\n'.join(lines) + '\n')
         tmp_lst.flush()
 
+        env = os.environ.copy()
+        env['CUDA_VISIBLE_DEVICES'] = str(n)
         p = subprocess.Popen([args.w2l_test, '--am', args.am, '--tokens', args.tokens, '--lexicon', lexicon.name, '--test', tmp_lst.name,
                               '--maxload', '-1', '--show', '--uselexicon=false',
-                              '--minisz=25', '--maxisz=900000000', '--mintsz=1', '--maxtsz=900000000',
-                              '--datadir=', '--tokensdir=', '--rundir=', '--archdir=', '--emission_dir='],
-                             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+                              '--datadir=', '--rundir=', '--emission_dir='],
+                             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=env)
 
         def sample_iter():
             for line in p.stdout:
@@ -151,14 +154,35 @@ def filter_test(args, lines, desc):
                 if line.startswith('[sample:'):
                     yield line
 
-        for line in tqdm(sample_iter(), desc='{} (w2l)'.format(desc), total=len(lines)):
+        for line in sample_iter():
             parts = line.split(' ')
             WER = float(parts[3].strip(',%')) / 100
             TER = float(parts[5].strip(',%')) / 100
             if (not args.LER or TER <= args.LER) and (not args.WER or WER <= args.WER):
                 name = parts[1].strip(',')
                 if name in lookup:
-                    yield lookup[name]
+                    q.put(lookup[name])
+                    continue
+            q.put(None)
+
+def filter_test(args, lines, desc):
+    manager = mp.Manager()
+    q = manager.Queue()
+    chunk_size = len(lines) // args.jobs
+    chunks = [lines[i*chunk_size:(i+1)*chunk_size]
+                if i < args.jobs - 1
+                else lines[i*chunk_size:]
+                  for i in range(args.jobs)]
+    with mp.Pool(args.jobs) as pool:
+        for i, chunk in enumerate(chunks):
+            pool.apply_async(filter_test_worker, (i, args, chunk, q), error_callback=lambda exc: print(exc, file=sys.stderr))
+
+        for i in tqdm(range(len(lines)), desc=f"{desc} (w2l)"):
+            line = q.get()
+            if line is not None:
+                yield line
+        pool.close()
+        pool.join()
 
 class Stats:
     def __init__(self, total):
@@ -191,7 +215,7 @@ class Stats:
 
     def dump(self):
         eprint = lambda *args: print(*args, file=sys.stderr)
-        name_pad = max(len(name) for name in self.order) + 1
+        name_pad = max([len(name) for name in self.order] + [0]) + 1
 
         steps = []
         last_count = self.total
@@ -266,6 +290,7 @@ if __name__ == '__main__':
     parser.add_argument('--chars',    help='filter on char count (range MIN-MAX chars)', type=str)
     parser.add_argument('--regex',    help="filter transcripts not matching regex e.g. --transcript \"^[a-zA-Z' ]+$\"", type=str)
     parser.add_argument('--valid',    help='filter broken audio files', action='store_true')
+    parser.add_argument('--jobs', '-j', help='parallel jobs', type=int, default=1)
     try:
         args = parser.parse_args()
     except SystemExit:
