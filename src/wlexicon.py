@@ -14,7 +14,15 @@ def all_words(name, lists, raw=False):
                     if word: words.add(word)
     return words
 
-def leters(word, ctc=False):
+def leters(word, ctc=False, cap_tokens=False):
+    if cap_tokens:
+        tokens = []
+        for c in word:
+            if tokens and c.isupper():
+                tokens.append('|')
+            tokens.append(c)
+        word = ''.join(tokens)
+        print(word)
     word = word.lower()
     if word.startswith("'") and word.endswith("'"):
         word = word[1:-1].strip()
@@ -28,12 +36,15 @@ def leters(word, ctc=False):
     return ' '.join(out)
 
 def build_lexicon(name, words, nbest=10, ctc=False):
+    lower_words = {word for word in words if word.islower()}
     lexicon_path = name + '.lexicon'
     with open(lexicon_path, 'w') as o:
         for word in sorted(words):
             if not word.strip("'"):
                 continue
-            o.write('{} {} |\n'.format(word, leters(word, ctc=ctc)))
+            lword = word.lower()
+            cap_tokens = (word != lword and lword in lower_words)
+            o.write('{} {} |\n'.format(word, leters(word, ctc=ctc, cap_tokens=cap_tokens)))
     return lexicon_path
 
 def usage():
