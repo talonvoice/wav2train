@@ -124,7 +124,7 @@ def filter_regex(lines, regex):
 
 def filter_valid_audio(lines):
     pool = mp.Pool()
-    for line in pool.imap_unordered(valid_audio_fn, lines):
+    for line in pool.imap(valid_audio_fn, lines):
         if line:
             yield line
 
